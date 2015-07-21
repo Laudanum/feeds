@@ -109,8 +109,43 @@ class EntityReference extends FieldTargetBase implements ConfigurableTargetInter
   /**
    * {@inheritdoc}
    */
+  protected function prepareValues(array $values) {
+    $return = [];
+    foreach ($values as $delta => $columns) {
+      try {
+        $this->prepareValue($delta, $columns);
+        if ( $this->configuration['multiple'] && isset($this->configuration['separator']) )
+          $return = $columns;
+        else
+          $return[] = $columns;
+      }
+      catch (EmptyFeedException $e) {
+        // Nothing wrong here.
+      }
+      catch (TargetValidationException $e) {
+        // Validation failed.
+        drupal_set_message($e->getMessage(), 'error');
+      }
+    }
+    return $return;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
   protected function prepareValue($delta, array &$values) {
-    if ($target_id = $this->findEntity($values['target_id'], $this->configuration['reference_by'])) {
+    if ( $this->configuration['multiple'] && isset($this->configuration['separator']) ) {
+      $return = [];
+      $ids = explode($this->configuration['separator'], $values['target_id']);
+      foreach ( $ids as $id ) {
+        if ($target_id = $this->findEntity(trim($id), $this->configuration['reference_by'])) {
+          array_push($return, array('target_id' => $target_id));
+        }
+      }
+      $values = $return;
+      return;
+    }
+    else if ($target_id = $this->findEntity($values['target_id'], $this->configuration['reference_by'])) {
       $values['target_id'] = $target_id;
       return;
     }
@@ -150,7 +185,7 @@ class EntityReference extends FieldTargetBase implements ConfigurableTargetInter
    * {@inheritdoc}
    */
   public function defaultConfiguration() {
-    return ['reference_by' => NULL];
+    return ['reference_by' => NULL, 'multiple' => FALSE, 'separator' => NULL];
   }
 
   /**
@@ -166,6 +201,25 @@ class EntityReference extends FieldTargetBase implements ConfigurableTargetInter
       '#default_value' => $this->configuration['reference_by'],
     ];
 
+    $form['multiple'] = [
+      '#type' => 'checkbox',
+      '#title' => $this->t('Multiple values in one column'),
+      '#default_value' => $this->configuration['multiple'],
+    ];
+
+    $form['separator'] = [
+      '#type' => 'select',
+      '#title' => $this->t('Multiple field separator'),
+      '#options' => [
+        ',' => ',',
+        ';' => ';',
+        'TAB' => 'TAB',
+        '|' => '|',
+        '+' => '+',
+      ],
+      '#default_value' => $this->configuration['separator'],
+    ];
+
     return $form;
   }
 
@@ -176,7 +230,16 @@ class EntityReference extends FieldTargetBase implements ConfigurableTargetInter
     $options = $this->getPotentialFields();
     if ($this->configuration['reference_by'] && isset($options[$this->configuration['reference_by']])) {
       $options = $this->getPotentialFields();
-      return $this->t('Reference by: %message', ['%message' => $options[$this->configuration['reference_by']]]);
+      $message = $this->t('Reference by: %message', ['%message' => $options[$this->configuration['reference_by']]]);
+      if ($this->configuration['multiple']) {
+        $message .= $this->t('<br>Multiple values in one column');
+        if ($this->configuration['separator'] && isset($this->configuration['separator'])) {
+          $message .= $this->t(' separated by: <em>%separator</em>.',  ['%separator' => $this->configuration['separator']]);
+        } else {
+           $message .= $this->t('. <em>Please select a separator</em>.');
+        }
+      }
+      return $message;
     }
     return $this->t('Please select a field to reference by.');
   }

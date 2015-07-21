@@ -18,6 +18,7 @@ use Drupal\feeds\Plugin\Type\PluginBase;
 use Drupal\feeds\Result\HttpFetcherResult;
 use Drupal\feeds\StateInterface;
 use Drupal\feeds\Utility\Feed;
+use Drupal\feeds\Component\CsvParser;
 use GuzzleHttp\ClientInterface;
 use GuzzleHttp\Exception\RequestException;
 use GuzzleHttp\Stream\Utils;
@@ -202,8 +203,13 @@ class HttpFetcher extends PluginBase implements ClearableInterface, FeedPluginFo
     if ($url = Feed::getCommonSyndication($response->getEffectiveUrl(), (string) $response->getBody())) {
       $form_state->setValue('source', $url);
     }
+    else if ( $body = CsvParser::createFromString( (string) $response->getBody() ) ) {
+      // $form_state->setError($form['source'], $this->t('Looks like CSV'));
+      $form_state->setValue('source', $response->getEffectiveUrl());
+    }
     else {
-      $form_state->setError($form['source'], $this->t('Invalid feed URL.'));
+      $form_state->setError($form['source'], $this->t('Invalid feed URL.' . (string) $response->getBody() ));
+      // $form_state->setError($form['source'], $this->t('Invalid feed URL.'));
     }
   }
 

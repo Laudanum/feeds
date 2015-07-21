@@ -126,6 +126,11 @@ abstract class EntityProcessorBase extends ProcessorBase implements EntityProces
     try {
       // Set field values.
       $this->map($feed, $entity, $item);
+      // This causes an error if it is an empty string
+      if ( empty($entity->get('feeds_item')->guid) ) {
+        $entity->set('feeds_item')->guid = null;
+      }
+
       $this->entityValidate($entity);
 
       // This will throw an exception on failure.
@@ -304,6 +309,13 @@ abstract class EntityProcessorBase extends ProcessorBase implements EntityProces
    * {@inheritdoc}
    */
   protected function entityValidate(EntityInterface $entity) {
+    // drupal_set_message(print_r($entity, TRUE));
+    // On courses there are three fields that are empty strings rather than their types
+    // String (which happens before this entityValidate)
+    // Boolean
+    // URI
+    // To trap that we have to hack core. They should just not be empty in the first place (they can be null instead)
+
     $violations = $entity->validate();
     if (!count($violations)) {
       return;

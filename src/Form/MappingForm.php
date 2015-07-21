@@ -152,18 +152,43 @@ class MappingForm extends FormBase {
       '#items' => [],
     ];
 
+    $dynamic_map = FALSE;
+    $mapping_sources = $this->feedType->getMappingSources();
+    if (
+      ! $mapping_sources
+      ||
+      empty($mapping_sources)
+      ||
+      (
+        count($mapping_sources) == 1
+        &&
+        empty($mapping_sources[0])
+      )
+    ) {
+      $dynamic_map = TRUE;
+    }
+
     foreach ($mapping['map'] as $column => $source) {
       if (!$this->targets[$mapping['target']]->hasProperty($column)) {
         unset($mapping['map'][$column]);
         continue;
       }
-      $row['map'][$column] = [
-        '#type' => 'select',
-        '#options' => $this->sourceOptions,
-        '#default_value' => $source,
-        '#empty_option' => $this->t('- Select a source -'),
-        '#attributes' => ['class' => ['feeds-table-select-list']],
-      ];
+      if ( $dynamic_map ) {
+        $row['map'][$column] = [
+          '#type' => 'textfield',
+          '#default_value' => $source,
+          '#placeholder' => t('Column heading'),
+          '#attributes' => ['class' => ['feeds-table-text-field']],
+        ];
+      } else {
+        $row['map'][$column] = [
+          '#type' => 'select',
+          '#options' => $this->sourceOptions,
+          '#default_value' => $source,
+          '#empty_option' => $this->t('- Select a source -'),
+          '#attributes' => ['class' => ['feeds-table-select-list']],
+        ];
+      }
 
       $label = String::checkPlain($this->targets[$mapping['target']]->getLabel());
 
